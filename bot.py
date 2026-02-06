@@ -30,6 +30,8 @@ def save_sent(data):
         json.dump(data, f)
 
 
+# ---------- EPIC GAMES ----------
+
 def get_epic_deals():
     url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=en-US&country=US"
     data = requests.get(url).json()
@@ -49,17 +51,15 @@ def get_epic_deals():
 
         discount = price["discount"]
 
-        # Free games
         if current == 0:
             free_games.append({
-                "id": title,
+                "id": f"epic_{title}",
                 "text": f"🆓 {title} (FREE)"
             })
 
-        # Discounted games
         elif discount > 0:
             discount_games.append({
-                "id": title,
+                "id": f"epic_{title}",
                 "text":
                 f"💰 {title}\n"
                 f"Was: ${original}\n"
@@ -69,53 +69,102 @@ def get_epic_deals():
     return free_games, discount_games
 
 
+# ---------- STEAM ----------
+
+def get_steam_deals():
+
+    url = "https://store.steampowered.com/api/featuredcategories"
+
+    data = requests.get(url).json()
+
+    specials = data["specials"]["items"]
+
+    deals = []
+
+    for game in specials[:10]:  # Top 10 deals
+
+        name = game["name"]
+
+        original = game["original_price"] / 100
+        current = game["final_price"] / 100
+
+        discount = game["discount_percent"]
+
+        if discount >= 30:  # Only 30%+ deals
+
+            deals.append({
+                "id": f"steam_{game['id']}",
+                "text":
+                f"🔥 {name}\n"
+                f"Was: ${original}\n"
+                f"Now: ${current} ({discount}% OFF)"
+            })
+
+    return deals
+
+
+# ---------- MAIN ----------
+
 def main():
 
     sent = load_sent()
     new_sent = sent.copy()
 
-    free_games, discount_games = get_epic_deals()
+    free_games, epic_discounts = get_epic_deals()
+    steam_deals = get_steam_deals()
 
-    free_msgs = []
-    discount_msgs = []
+    new_free = []
+    new_epic = []
+    new_steam = []
 
-    # New free games
-    for game in free_games:
-        if game["id"] not in sent:
-            free_msgs.append(game["text"])
-            new_sent.append(game["id"])
+    for g in free_games:
+        if g["id"] not in sent:
+            new_free.append(g["text"])
+            new_sent.append(g["id"])
 
-    # New discount games
-    for game in discount_games:
-        if game["id"] not in sent:
-            discount_msgs.append(game["text"])
-            new_sent.append(game["id"])
+    for g in epic_discounts:
+        if g["id"] not in sent:
+            new_epic.append(g["text"])
+            new_sent.append(g["id"])
 
-    # Build message
-    message = "🎮 Epic Games Store Update\n\n"
+    for g in steam_deals:
+        if g["id"] not in sent:
+            new_steam.append(g["text"])
+            new_sent.append(g["id"])
 
-    # Free section
-    if free_msgs:
-        message += "🆓 Free Games:\n"
-        message += "\n".join(free_msgs)
+    if not (new_free or new_epic or new_steam):
+        print("No new deals")
+        return
+
+    message = "🎮 Game Deals Update\n\n"
+
+    # Epic Free
+    message += "🟦 Epic Free Games:\n"
+    if new_free:
+        message += "\n".join(new_free)
     else:
-        message += "🆓 Free Games:\nNo new free games right now."
+        message += "No new free games."
 
     message += "\n\n"
 
-    # Discount section
-    if discount_msgs:
-        message += "💰 Discount Offers:\n"
-        message += "\n".join(discount_msgs)
+    # Epic Discounts
+    message += "🟦 Epic Discounts:\n"
+    if new_epic:
+        message += "\n".join(new_epic)
     else:
-        message += "💰 Discount Offers:\nNo discount offers right now."
+        message += "No new discounts."
 
-    # Send only if something is new
-    if free_msgs or discount_msgs:
-        send_telegram(message)
-        save_sent(new_sent)
+    message += "\n\n"
+
+    # Steam Deals
+    message += "🟩 Steam Deals (30%+ OFF):\n"
+    if new_steam:
+        message += "\n".join(new_steam)
     else:
-        print("No new updates")
+        message += "No new Steam deals."
+
+    send_telegram(message)
+    save_sent(new_sent)
 
 
 if __name__ == "__main__":
