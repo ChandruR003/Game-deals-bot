@@ -62,8 +62,8 @@ def get_epic_deals():
                 "id": f"epic_{title}",
                 "text":
                 f"💰 {title}\n"
-                f"Was: ${original}\n"
-                f"Now: ${current} ({discount}% OFF)"
+                f"Was: ₹{original}\n"
+                f"Now: ₹{current} ({discount}% OFF)"
             })
 
     return free_games, discount_games
@@ -73,7 +73,7 @@ def get_epic_deals():
 
 def get_steam_deals():
 
-    url = "https://store.steampowered.com/api/featuredcategories"
+    url = "https://store.steampowered.com/api/featuredcategories?cc=IN&l=en"
 
     data = requests.get(url).json()
 
@@ -96,8 +96,8 @@ def get_steam_deals():
                 "id": f"steam_{game['id']}",
                 "text":
                 f"🔥 {name}\n"
-                f"Was: ${original}\n"
-                f"Now: ${current} ({discount}% OFF)"
+                f"Was: ₹{original}\n"
+                f"Now: ₹{current} ({discount}% OFF)"
             })
 
     return deals
