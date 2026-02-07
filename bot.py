@@ -80,6 +80,7 @@ def get_steam_deals():
     specials = data["specials"]["items"]
 
     deals = []
+    count = 1
 
     for game in specials[:10]:  # Top 10 deals
 
@@ -95,10 +96,11 @@ def get_steam_deals():
             deals.append({
                 "id": f"steam_{game['id']}",
                 "text":
-                f"🔥 {name}\n"
+                f"{count}. {name}\n"
                 f"Was: ₹{original}\n"
                 f"Now: ₹{current} ({discount}% OFF)"
             })
+            count += 1
 
     return deals
 
