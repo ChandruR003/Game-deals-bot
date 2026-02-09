@@ -18,11 +18,16 @@ def send_telegram(text):
 
 def get_updates():
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+    last_id = load_last_update()
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_id + 1}"
     r = requests.get(url).json()
 
     if not r.get("result"):
         return []
+
+    latest = r["result"][-1]["update_id"]
+    save_last_update(latest)
 
     return r["result"]
 
@@ -72,6 +77,23 @@ def load_watchlist():
 def save_watchlist(data):
     with open(WATCH_FILE, "w") as f:
         json.dump(data, f)
+
+# ---------- UPDATE TRACKER ----------
+
+UPDATE_FILE = "last_update.txt"
+
+
+def load_last_update():
+    try:
+        with open(UPDATE_FILE, "r") as f:
+            return int(f.read().strip())
+    except:
+        return 0
+
+
+def save_last_update(val):
+    with open(UPDATE_FILE, "w") as f:
+        f.write(str(val))
 
 
 
