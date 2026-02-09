@@ -184,24 +184,23 @@ def main():
     message += "\n\n"
 
     # Steam Free
-message += "🟩 Steam Free Games:\n"
-if new_steam_free:
-    message += "\n".join(new_steam_free)
-else:
-    message += "No new free games."
+    message += "🟩 Steam Free Games:\n"
+    if new_steam_free:
+        message += "\n".join(new_steam_free)
+    else:
+        message += "No new free games."
 
-message += "\n\n"
+    message += "\n\n"
 
-# Steam Deals
-message += "🟩 Steam Deals (30%+ OFF):\n"
-if new_steam:
-    message += "\n".join(new_steam)
-else:
-    message += "No new Steam deals."
+    # Steam Deals
+    message += "🟩 Steam Deals (30%+ OFF):\n"
+    if new_steam:
+        message += "\n".join(new_steam)
+    else:
+        message += "No new Steam deals."
 
     send_telegram(message)
     save_sent(new_sent)
-
 
 if __name__ == "__main__":
     main()
