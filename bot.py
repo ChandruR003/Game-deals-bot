@@ -80,9 +80,11 @@ def get_steam_deals():
     specials = data["specials"]["items"]
 
     deals = []
+    free_games = []
+
     count = 1
 
-    for game in specials[:10]:  # Top 10 deals
+    for game in specials[:30]:  # Top 30 deals
 
         name = game["name"]
 
@@ -91,18 +93,35 @@ def get_steam_deals():
 
         discount = game["discount_percent"]
 
-        if discount >= 30:  # Only 30%+ deals
+        game_id = game["id"]
+
+        # FREE GAME
+        if current == 0:
+            free_games.append({
+                "id": f"steam_free_{game_id}",
+                "text": f"🆓 {name} (FREE on Steam)"
+            })
+
+        # DISCOUNTED GAME
+        elif discount >= 30:
+
+            tag = ""
+
+            # HOT DEAL (80%+)
+            if discount >= 80:
+                tag = " 🔥 HOT DEAL"
 
             deals.append({
-                "id": f"steam_{game['id']}",
+                "id": f"steam_{game_id}",
                 "text":
-                f"{count}. {name}\n"
-                f"Was: ₹{original}\n"
-                f"Now: ₹{current} ({discount}% OFF)"
+                f"{count}. {name}{tag}\n"
+                f"   Was: ₹{original}\n"
+                f"   Now: ₹{current} ({discount}% OFF)"
             })
+
             count += 1
 
-    return deals
+    return deals, free_games
 
 
 # ---------- MAIN ----------
@@ -113,11 +132,12 @@ def main():
     new_sent = sent.copy()
 
     free_games, epic_discounts = get_epic_deals()
-    steam_deals = get_steam_deals()
+    steam_deals, steam_free = get_steam_deals()
 
     new_free = []
     new_epic = []
     new_steam = []
+    new_steam_free = []
 
     for g in free_games:
         if g["id"] not in sent:
@@ -132,6 +152,11 @@ def main():
     for g in steam_deals:
         if g["id"] not in sent:
             new_steam.append(g["text"])
+            new_sent.append(g["id"])
+
+    for g in steam_free:
+        if g["id"] not in sent:
+            new_steam_free.append(g["text"])
             new_sent.append(g["id"])
 
     if not (new_free or new_epic or new_steam):
@@ -158,12 +183,21 @@ def main():
 
     message += "\n\n"
 
-    # Steam Deals
-    message += "🟩 Steam Deals (30%+ OFF):\n"
-    if new_steam:
-        message += "\n".join(new_steam)
-    else:
-        message += "No new Steam deals."
+    # Steam Free
+message += "🟩 Steam Free Games:\n"
+if new_steam_free:
+    message += "\n".join(new_steam_free)
+else:
+    message += "No new free games."
+
+message += "\n\n"
+
+# Steam Deals
+message += "🟩 Steam Deals (30%+ OFF):\n"
+if new_steam:
+    message += "\n".join(new_steam)
+else:
+    message += "No new Steam deals."
 
     send_telegram(message)
     save_sent(new_sent)
