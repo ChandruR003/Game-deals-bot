@@ -29,6 +29,24 @@ def save_sent(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f)
 
+# ---------- PRICE HISTORY ----------
+
+PRICE_FILE = "price_history.json"
+
+
+def load_prices():
+    try:
+        with open(PRICE_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return {}
+
+
+def save_prices(data):
+    with open(PRICE_FILE, "w") as f:
+        json.dump(data, f)
+
+
 
 # ---------- EPIC GAMES ----------
 
@@ -129,6 +147,7 @@ def get_steam_deals():
 def main():
 
     sent = load_sent()
+    prices = load_prices()
     new_sent = sent.copy()
 
     free_games, epic_discounts = get_epic_deals()
@@ -150,9 +169,30 @@ def main():
             new_sent.append(g["id"])
 
     for g in steam_deals:
-        if g["id"] not in sent:
-            new_steam.append(g["text"])
-            new_sent.append(g["id"])
+
+        game_id = g["id"]
+        text = g["text"]
+
+        # Extract price from text
+        lines = text.split("\n")
+        now_line = lines[2]  # "Now: ₹xxx (xx% OFF)"
+        now_price = float(now_line.split("₹")[1].split(" ")[0])
+
+        # Get lowest price
+        if game_id in prices:
+            lowest = min(prices[game_id], now_price)
+            prices[game_id].append(now_price)
+        else:
+            lowest = now_price
+            prices[game_id] = [now_price]
+
+        # Add lowest price info
+        text += f"\n   Lowest: ₹{lowest}"
+
+        if game_id not in sent:
+            new_steam.append(text)
+            new_sent.append(game_id)
+
 
     for g in steam_free:
         if g["id"] not in sent:
@@ -201,6 +241,7 @@ def main():
 
     send_telegram(message)
     save_sent(new_sent)
+    save_prices(prices)
 
 if __name__ == "__main__":
     main()
