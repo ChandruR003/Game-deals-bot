@@ -16,6 +16,16 @@ def send_telegram(text):
     }
     requests.post(url, data=data)
 
+def get_updates():
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+    r = requests.get(url).json()
+
+    if not r.get("result"):
+        return []
+
+    return r["result"]
+
 
 def load_sent():
     try:
@@ -165,6 +175,60 @@ def main():
 
     sent = load_sent()
     prices = load_prices()
+    watchlist = load_watchlist()
+
+    updates = get_updates()
+
+    for u in updates:
+
+        if "message" not in u:
+            continue
+
+        text = u["message"].get("text", "")
+        chat = u["message"]["chat"]["id"]
+
+        if not text.startswith("/"):
+            continue
+
+        parts = text.split(" ", 1)
+        cmd = parts[0].lower()
+        arg = parts[1].lower() if len(parts) > 1 else ""
+
+        # ADD
+        if cmd == "/add" and arg:
+
+            if arg not in watchlist:
+                watchlist.append(arg)
+                save_watchlist(watchlist)
+
+                send_telegram(f"✅ Added to watchlist: {arg}")
+
+            else:
+                send_telegram(f"⚠️ Already watching: {arg}")
+
+        # REMOVE
+        elif cmd == "/remove" and arg:
+
+            if arg in watchlist:
+                watchlist.remove(arg)
+                save_watchlist(watchlist)
+
+                send_telegram(f"❌ Removed: {arg}")
+
+            else:
+                send_telegram(f"⚠️ Not in list: {arg}")
+
+        # LIST
+        elif cmd == "/list":
+
+            if watchlist:
+                send_telegram(
+                    "📌 Your Watchlist:\n" +
+                    "\n".join(watchlist)
+                )
+            else:
+                send_telegram("📭 Watchlist is empty")
+
     new_sent = sent.copy()
 
     free_games, epic_discounts = get_epic_deals()
@@ -203,8 +267,16 @@ def main():
             lowest = now_price
             prices[game_id] = [now_price]
 
-        # Add lowest price info
+        
+# Add lowest price info
         text += f"\n   Lowest: ₹{lowest}"
+
+        # WATCHLIST ALERT
+        name_lower = text.lower()
+
+        for w in watchlist:
+            if w in name_lower:
+                send_telegram(f"🔔 WATCH ALERT!\n{text}")
 
         if game_id not in sent:
             new_steam.append(text)
@@ -259,6 +331,7 @@ def main():
     send_telegram(message)
     save_sent(new_sent)
     save_prices(prices)
+    save_watchlist(watchlist)
 
 if __name__ == "__main__":
     main()
