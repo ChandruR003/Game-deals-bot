@@ -159,7 +159,7 @@ def main():
             new_steam_free.append(g["text"])
             new_sent.append(g["id"])
 
-    if not (new_free or new_epic or new_steam):
+    if not (new_free or new_epic or new_steam or new_steam_free):
         print("No new deals")
         return
 
