@@ -46,6 +46,23 @@ def save_prices(data):
     with open(PRICE_FILE, "w") as f:
         json.dump(data, f)
 
+# ---------- WATCHLIST ----------
+
+WATCH_FILE = "watchlist.json"
+
+
+def load_watchlist():
+    try:
+        with open(WATCH_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+
+def save_watchlist(data):
+    with open(WATCH_FILE, "w") as f:
+        json.dump(data, f)
+
 
 
 # ---------- EPIC GAMES ----------
