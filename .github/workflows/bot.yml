@@ -32,6 +32,6 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-          git add sent_deals.json
+          git add sent_deals.json price_history.json watchlist.json last_update.txt
           git commit -m "Update memory" || echo "No changes"
           git push
