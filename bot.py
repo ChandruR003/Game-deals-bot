@@ -6,6 +6,7 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 DATA_FILE = "sent_deals.json"
+UPDATE_FILE = "last_update.txt"
 
 
 def send_telegram(text):
@@ -20,16 +21,23 @@ def get_updates():
 
     last_id = load_last_update()
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_id + 1}"
-    r = requests.get(url).json()
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+    params = {
+        "offset": last_id + 1,
+        "timeout": 10
+    }
+
+    r = requests.get(url, params=params).json()
 
     if not r.get("result"):
         return []
 
-    latest = r["result"][-1]["update_id"]
-    save_last_update(latest)
+    updates = r["result"]
 
-    return r["result"]
+    newest = updates[-1]["update_id"]
+    save_last_update(newest)
+
+    return updates
 
 
 def load_sent():
@@ -43,6 +51,17 @@ def load_sent():
 def save_sent(data):
     with open(DATA_FILE, "w") as f:
         json.dump(data, f)
+
+def load_last_update():
+    try:
+        with open("last_update.txt", "r") as f:
+            return int(f.read().strip())
+    except:
+        return 0
+
+def save_last_update(uid):
+    with open("last_update.txt", "w") as f:
+        f.write(str(uid))
 
 # ---------- PRICE HISTORY ----------
 
