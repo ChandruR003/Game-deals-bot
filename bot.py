@@ -14,6 +14,7 @@ UPDATE_FILE = "last_update.txt"
 # ---------------- TELEGRAM ---------------- #
 
 def send_message(text, buttons=None):
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     data = {
@@ -31,6 +32,7 @@ def send_message(text, buttons=None):
 
 
 def send_photo(text, image, buttons=None):
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
     data = {
@@ -89,14 +91,18 @@ def save_daily(val):
         f.write(val)
 
 
-# ---------------- TELEGRAM UPDATES ---------------- #
+# ---------------- TELEGRAM ---------------- #
 
-def answer_callback(callback_id):
+def answer_callback(cid):
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery"
-    data = {"callback_query_id": callback_id}
+    data = {"callback_query_id": cid}
+
     requests.post(url, data=data)
 
+
 def get_updates():
+
     last = load_update()
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
@@ -117,6 +123,7 @@ def get_updates():
 # ---------------- EPIC ---------------- #
 
 def get_epic():
+
     url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions"
 
     data = requests.get(url).json()
@@ -129,19 +136,20 @@ def get_epic():
     for g in games:
 
         title = g["title"]
+
         price = g["price"]["totalPrice"]
 
         orig = price["originalPrice"] / 100
         now = price["discountPrice"] / 100
 
-        discount = int((1 - (now / orig)) * 100) if orig else 0
+        off = int(price["discount"])
 
-        end = g["promotions"]["promotionalOffers"]
+        end = "Unknown"
 
-        end_date = "Unknown"
+        promos = g.get("promotions", {}).get("promotionalOffers", [])
 
-        if end:
-            end_date = end[0]["promotionalOffers"][0]["endDate"][:10]
+        if promos:
+            end = promos[0]["promotionalOffers"][0]["endDate"][:10]
 
         image = g["keyImages"][0]["url"]
 
@@ -150,18 +158,18 @@ def get_epic():
             free.append({
                 "name": title,
                 "img": None,
-                "end": end_date
+                "end": end
             })
 
-        elif discount >= 30:
+        elif off >= 30:
 
             deals.append({
                 "name": title,
                 "orig": orig,
                 "now": now,
-                "off": discount,
+                "off": off,
                 "img": image,
-                "end": end_date
+                "end": end
             })
 
     return free[:5], deals[:5], free, deals
@@ -170,6 +178,7 @@ def get_epic():
 # ---------------- STEAM ---------------- #
 
 def get_steam():
+
     url = "https://store.steampowered.com/api/featuredcategories?cc=IN"
 
     data = requests.get(url).json()
@@ -210,7 +219,7 @@ def get_steam():
     return free[:5], deals[:5], free, deals
 
 
-# ---------------- SUMMARY ---------------- #
+# ---------------- DEALS ---------------- #
 
 def send_deals():
 
@@ -228,27 +237,58 @@ def send_deals():
 
     for g in e_hot:
 
-        txt = f"🔥 <b>{g['name']}</b>\n₹{g['orig']} → ₹{g['now']} ({g['off']}% OFF)\nEnds: {g['end']}"
+        txt = (
+            f"🔥 <b>{g['name']}</b>\n"
+            f"₹{g['orig']} → ₹{g['now']} ({g['off']}% OFF)\n"
+            f"Ends: {g['end']}"
+        )
 
         send_photo(
             txt,
             g["img"],
-            buttons=[
-                [{"text": "🟦 Open Epic Store", "url": "https://store.epicgames.com"}]
-            ]
+            [[{"text": "🟦 Epic Store", "url": "https://store.epicgames.com"}]]
         )
 
     for g in s_hot:
 
-        txt = f"🔥 <b>{g['name']}</b>\n₹{g['orig']} → ₹{g['now']} ({g['off']}% OFF)"
+        txt = (
+            f"🔥 <b>{g['name']}</b>\n"
+            f"₹{g['orig']} → ₹{g['now']} ({g['off']}% OFF)"
+        )
 
         send_photo(
             txt,
             g["img"],
-            buttons=[
-                [{"text": "🟩 Open Steam Store", "url": "https://store.steampowered.com"}]
-            ]
+            [[{"text": "🟩 Steam Store", "url": "https://store.steampowered.com"}]]
         )
+
+
+def send_epic():
+
+    _, hot, _, _ = get_epic()
+
+    for g in hot:
+
+        txt = (
+            f"🔥 <b>{g['name']}</b>\n"
+            f"₹{g['orig']} → ₹{g['now']} ({g['off']}%)"
+        )
+
+        send_photo(txt, g["img"])
+
+
+def send_steam():
+
+    _, hot, _, _ = get_steam()
+
+    for g in hot:
+
+        txt = (
+            f"🔥 <b>{g['name']}</b>\n"
+            f"₹{g['orig']} → ₹{g['now']} ({g['off']}%)"
+        )
+
+        send_photo(txt, g["img"])
 
 
 # ---------------- DETAILS ---------------- #
@@ -314,79 +354,80 @@ def main():
 
     for u in updates:
 
-    # ---------- BUTTON CLICKS ----------
-    if "callback_query" in u:
+        # BUTTONS
+        if "callback_query" in u:
 
-        cb = u["callback_query"]
-        data = cb["data"]
+            cb = u["callback_query"]
 
-        answer_callback(cb["id"])
+            answer_callback(cb["id"])
 
-        if data == "epic":
-            send_epic()
+            data = cb["data"]
 
-        elif data == "steam":
-            send_steam()
+            if data == "epic":
+                send_epic()
 
-        elif data == "details":
+            elif data == "steam":
+                send_steam()
+
+            elif data == "details":
+                send_details()
+
+            continue
+
+
+        # MESSAGES
+        if "message" not in u:
+            continue
+
+        text = u["message"].get("text", "").lower()
+
+
+        if text == "/deals":
+            send_deals()
+
+
+        elif text == "/details":
             send_details()
 
-        continue
+
+        elif text.startswith("/add "):
+
+            name = text[5:]
+
+            if name not in watch:
+                watch.append(name)
+                save_file(WATCH_FILE, watch)
+                send_message(f"✅ Added: {name}")
 
 
-    # ---------- NORMAL MESSAGES ----------
-    if "message" not in u:
-        continue
+        elif text.startswith("/remove "):
 
-    text = u["message"].get("text", "").lower()
+            name = text[8:]
 
-
-    if text == "/deals":
-        send_deals()
-
-
-    elif text == "/details":
-        send_details()
+            if name in watch:
+                watch.remove(name)
+                save_file(WATCH_FILE, watch)
+                send_message(f"❌ Removed: {name}")
 
 
-    elif text.startswith("/add "):
+        elif text == "/list":
 
-        name = text[5:]
-
-        if name not in watch:
-            watch.append(name)
-            save_file(WATCH_FILE, watch)
-            send_message(f"✅ Added: {name}")
+            if watch:
+                send_message("📌 Watchlist:\n" + "\n".join(watch))
+            else:
+                send_message("📭 Empty")
 
 
-    elif text.startswith("/remove "):
+        elif text == "/help":
 
-        name = text[8:]
-
-        if name in watch:
-            watch.remove(name)
-            save_file(WATCH_FILE, watch)
-            send_message(f"❌ Removed: {name}")
-
-
-    elif text == "/list":
-
-        if watch:
-            send_message("📌 Watchlist:\n" + "\n".join(watch))
-        else:
-            send_message("📭 Empty")
-
-
-    elif text == "/help":
-
-        send_message(
-            "🤖 Commands:\n"
-            "/deals - Show deals\n"
-            "/details - Full list\n"
-            "/add name\n"
-            "/remove name\n"
-            "/list"
-        )
+            send_message(
+                "🤖 Commands:\n"
+                "/deals\n"
+                "/details\n"
+                "/add name\n"
+                "/remove name\n"
+                "/list"
+            )
 
     check_daily()
 
