@@ -62,7 +62,7 @@ def get_epic_deals(top=15):
         if now == 0:
             free.append({"text": f"🆓 {title}", "img": img})
         elif off > 0:
-            discount.append({"text": f"💰 {title}\nWas: ₹{orig}\nNow: ₹{now} ({off}% OFF)", "img": None})
+            discount.append({"text": f"💰 {title}\nWas: ₹{orig}\nNow: ₹{now} ({off}% OFF)", "img": img})
     return free, discount
 
 # ---------------- STEAM ----------------
@@ -87,6 +87,29 @@ def get_steam_deals(top=15):
             count += 1
     return deals, free
 
+# ---------------- UPDATES ----------------
+def load_last_update():
+    try:
+        with open(UPDATE_FILE, "r") as f:
+            return int(f.read().strip())
+    except:
+        return 0
+
+def save_last_update(val):
+    with open(UPDATE_FILE, "w") as f:
+        f.write(str(val))
+
+def get_updates():
+    last_id = load_last_update()
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
+    params = {"offset": last_id + 1, "timeout": 10}
+    r = requests.get(url, params=params).json()
+    if not r.get("result"):
+        return []
+    updates = r["result"]
+    save_last_update(updates[-1]["update_id"])
+    return updates
+
 # ---------------- SUMMARY ----------------
 def build_summary():
     epic_free, epic_disc = get_epic_deals()
@@ -103,7 +126,12 @@ def build_summary():
     msg += "\n\n"
     # Epic Discounts
     msg += "🟦 Epic Discounts:\n"
-    msg += "\n".join([g["text"] for g in epic_disc]) if epic_disc else "None"
+    if epic_disc:
+        for g in epic_disc:
+            send_telegram(g["text"], g.get("img"))
+        msg += "\n".join([g["text"] for g in epic_disc])
+    else:
+        msg += "None"
     msg += "\n\n"
     # Steam Free
     msg += "🟩 Steam Free:\n"
@@ -135,7 +163,6 @@ def main():
     sent = load_file(DATA_FILE, [])
     watch = load_file(WATCH_FILE, [])
     updates = get_updates()
-
     for u in updates:
         if "message" not in u:
             continue
@@ -145,7 +172,6 @@ def main():
         parts = text.split(" ", 1)
         cmd = parts[0]
         arg = parts[1] if len(parts) > 1 else ""
-
         # ADD
         if cmd == "/add" and arg:
             if arg not in watch:
@@ -154,7 +180,6 @@ def main():
                 send_telegram(f"✅ Added: {arg}")
             else:
                 send_telegram("⚠️ Already added")
-
         # REMOVE
         elif cmd == "/remove" and arg:
             if arg in watch:
@@ -163,22 +188,18 @@ def main():
                 send_telegram(f"❌ Removed: {arg}")
             else:
                 send_telegram("⚠️ Not found")
-
         # LIST
         elif cmd == "/list":
             if watch:
                 send_telegram("📌 Watchlist:\n" + "\n".join(watch))
             else:
                 send_telegram("📭 Empty")
-
         # DEALS
         elif cmd == "/deals":
             send_telegram(build_summary())
-
         # STATUS
         elif cmd == "/status":
             send_telegram("✅ Bot is running\n⏱ Active\n💻 Server OK")
-
         # HELP
         elif cmd == "/help":
             send_telegram(
