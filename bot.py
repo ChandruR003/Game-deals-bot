@@ -3,6 +3,9 @@ import os
 import json
 import datetime
 
+
+# ================= CONFIG ================= #
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
@@ -11,9 +14,9 @@ DAILY_FILE = "last_daily.txt"
 UPDATE_FILE = "last_update.txt"
 
 
-# ---------------- TELEGRAM ---------------- #
+# ================= TELEGRAM ================= #
 
-def send_message(text, buttons=None):
+def send_message(text):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
@@ -23,34 +26,10 @@ def send_message(text, buttons=None):
         "parse_mode": "HTML"
     }
 
-    if buttons:
-        data["reply_markup"] = json.dumps({
-            "inline_keyboard": buttons
-        })
-
-    requests.post(url, data=data)
-
-def send_menu():
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
-    data = {
-        "chat_id": CHAT_ID,
-        "text": "🎮 Game Deals Menu",
-        "reply_markup": json.dumps({
-            "keyboard": [
-                ["🟦 Epic", "🟩 Steam"],
-                ["🔥 Deals", "📜 Details"],
-                ["🌐 Epic Store", "🌐 Steam Store"]
-            ],
-            "resize_keyboard": True,
-            "one_time_keyboard": False
-        })
-    }
-
     requests.post(url, data=data)
 
 
-def send_photo(text, image, buttons=None):
+def send_photo(text, image):
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
 
@@ -61,15 +40,33 @@ def send_photo(text, image, buttons=None):
         "parse_mode": "HTML"
     }
 
-    if buttons:
-        data["reply_markup"] = json.dumps({
-            "inline_keyboard": buttons
+    requests.post(url, data=data)
+
+
+def send_menu():
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+    data = {
+        "chat_id": CHAT_ID,
+        "text": "🎮 <b>Game Deals Menu</b>",
+        "parse_mode": "HTML",
+        "reply_markup": json.dumps({
+            "keyboard": [
+                ["🔥 Deals", "📜 Details"],
+                ["🟦 Epic", "🟩 Steam"],
+                ["📌 Wishlist", "❓ Help"],
+                ["🌐 Epic Store", "🌐 Steam Store"]
+            ],
+            "resize_keyboard": True,
+            "persistent": True
         })
+    }
 
     requests.post(url, data=data)
 
 
-# ---------------- STORAGE ---------------- #
+# ================= STORAGE ================= #
 
 def load_file(name, default):
     try:
@@ -110,15 +107,7 @@ def save_daily(val):
         f.write(val)
 
 
-# ---------------- TELEGRAM ---------------- #
-
-def answer_callback(cid):
-
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery"
-    data = {"callback_query_id": cid}
-
-    requests.post(url, data=data)
-
+# ================= TELEGRAM UPDATES ================= #
 
 def get_updates():
 
@@ -139,7 +128,7 @@ def get_updates():
     return updates
 
 
-# ---------------- EPIC ---------------- #
+# ================= EPIC ================= #
 
 def get_epic():
 
@@ -163,24 +152,20 @@ def get_epic():
 
         off = int(price["discount"])
 
-        # -------- SAFE END DATE --------
         end = "Unknown"
 
-        promos_data = g.get("promotions")
+        promos = g.get("promotions")
 
-        if promos_data and promos_data.get("promotionalOffers"):
-            promos = promos_data["promotionalOffers"]
+        if promos and promos.get("promotionalOffers"):
+            p = promos["promotionalOffers"]
+            if p and p[0].get("promotionalOffers"):
+                end = p[0]["promotionalOffers"][0]["endDate"][:10]
 
-            if promos and promos[0].get("promotionalOffers"):
-                end = promos[0]["promotionalOffers"][0]["endDate"][:10]
-
-        # -------- SAFE IMAGE --------
         image = None
 
         if g.get("keyImages"):
             image = g["keyImages"][0]["url"]
 
-        # -------- FREE --------
         if now == 0:
 
             free.append({
@@ -189,7 +174,6 @@ def get_epic():
                 "end": end
             })
 
-        # -------- DEALS --------
         elif off >= 30:
 
             deals.append({
@@ -204,7 +188,7 @@ def get_epic():
     return free[:5], deals[:5], free, deals
 
 
-# ---------------- STEAM ---------------- #
+# ================= STEAM ================= #
 
 def get_steam():
 
@@ -248,17 +232,15 @@ def get_steam():
     return free[:5], deals[:5], free, deals
 
 
-# ---------------- DEALS ---------------- #
+# ================= DEALS ================= #
 
 def send_deals():
 
-    e_free, e_hot, _, _ = get_epic()
-    s_free, s_hot, _, _ = get_steam()
+    _, e_hot, _, _ = get_epic()
+    _, s_hot, _, _ = get_steam()
 
-    # Just send title (no buttons here)
     send_message("🎮 <b>Game Deals</b>")
 
-    # Epic Deals
     for g in e_hot:
 
         txt = (
@@ -270,7 +252,6 @@ def send_deals():
         send_photo(txt, g["img"])
 
 
-    # Steam Deals
     for g in s_hot:
 
         txt = (
@@ -309,7 +290,7 @@ def send_steam():
         send_photo(txt, g["img"])
 
 
-# ---------------- DETAILS ---------------- #
+# ================= DETAILS ================= #
 
 def send_details():
 
@@ -330,6 +311,7 @@ def send_details():
         msg += f"{i}. {g['name']} — ₹{g['now']} ({g['off']}%)\n"
         i += 1
 
+
     msg += "\n🟩 Steam\n"
 
     i = 1
@@ -342,10 +324,11 @@ def send_details():
         msg += f"{i}. {g['name']} — ₹{g['now']} ({g['off']}%)\n"
         i += 1
 
+
     send_message(msg)
 
 
-# ---------------- DAILY ---------------- #
+# ================= DAILY ================= #
 
 def check_daily():
 
@@ -358,55 +341,61 @@ def check_daily():
     if now.hour == 21 and last != today:
 
         send_deals()
-
         save_daily(today)
 
 
-# ---------------- MAIN ---------------- #
+# ================= MAIN ================= #
 
 def main():
 
     watch = load_file(WATCH_FILE, [])
 
     updates = get_updates()
-    send_menu()
 
     for u in updates:
 
-        # BUTTONS
-        if "callback_query" in u:
-
-            cb = u["callback_query"]
-
-            answer_callback(cb["id"])
-
-            data = cb["data"]
-
-            if data == "epic":
-                send_epic()
-
-            elif data == "steam":
-                send_steam()
-
-            elif data == "details":
-                send_details()
-
-            continue
-
-
-        # MESSAGES
         if "message" not in u:
             continue
 
-        text = u["message"].get("text", "").lower()
+        text = u["message"].get("text", "").strip().lower()
 
 
-        if text == "/deals":
+        if text in ["🔥 deals", "/deals"]:
             send_deals()
 
-
-        elif text == "/details":
+        elif text in ["📜 details", "/details"]:
             send_details()
+
+        elif text == "🟦 epic":
+            send_epic()
+
+        elif text == "🟩 steam":
+            send_steam()
+
+        elif text == "🌐 epic store":
+            send_message("https://store.epicgames.com")
+
+        elif text == "🌐 steam store":
+            send_message("https://store.steampowered.com")
+
+        elif text in ["📌 wishlist", "/list"]:
+
+            if watch:
+                send_message("📌 Watchlist:\n" + "\n".join(watch))
+            else:
+                send_message("📭 Empty")
+
+
+        elif text in ["❓ help", "/help"]:
+
+            send_message(
+                "🤖 Commands:\n\n"
+                "/deals\n"
+                "/details\n"
+                "/add name\n"
+                "/remove name\n"
+                "/list"
+            )
 
 
         elif text.startswith("/add "):
@@ -429,26 +418,13 @@ def main():
                 send_message(f"❌ Removed: {name}")
 
 
-        elif text == "/list":
-
-            if watch:
-                send_message("📌 Watchlist:\n" + "\n".join(watch))
-            else:
-                send_message("📭 Empty")
+        send_menu()
 
 
-        elif text == "/help":
-
-            send_message(
-                "🤖 Commands:\n"
-                "/deals\n"
-                "/details\n"
-                "/add name\n"
-                "/remove name\n"
-                "/list"
-            )
+    send_menu()
 
     check_daily()
+
 
 
 if __name__ == "__main__":
