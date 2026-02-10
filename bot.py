@@ -359,7 +359,12 @@ def main():
 
         text = u["message"].get("text", "").strip().lower()
 
-
+        #START COMMAND
+        if text == "/start":
+            send_message("👋 Welcome to Game Deals Bot!")
+            send_menu()
+            continue
+        
         if text in ["🔥 deals", "/deals"]:
             send_deals()
 
@@ -418,10 +423,8 @@ def main():
                 send_message(f"❌ Removed: {name}")
 
 
-        send_menu()
-
-
-    send_menu()
+        if updates:
+            send_menu()
 
     check_daily()
 
