@@ -144,15 +144,24 @@ def get_epic():
 
         off = int(price["discount"])
 
+        # -------- SAFE END DATE --------
         end = "Unknown"
 
-        promos = g.get("promotions", {}).get("promotionalOffers", [])
+        promos_data = g.get("promotions")
 
-        if promos:
-            end = promos[0]["promotionalOffers"][0]["endDate"][:10]
+        if promos_data and promos_data.get("promotionalOffers"):
+            promos = promos_data["promotionalOffers"]
 
-        image = g["keyImages"][0]["url"]
+            if promos and promos[0].get("promotionalOffers"):
+                end = promos[0]["promotionalOffers"][0]["endDate"][:10]
 
+        # -------- SAFE IMAGE --------
+        image = None
+
+        if g.get("keyImages"):
+            image = g["keyImages"][0]["url"]
+
+        # -------- FREE --------
         if now == 0:
 
             free.append({
@@ -161,6 +170,7 @@ def get_epic():
                 "end": end
             })
 
+        # -------- DEALS --------
         elif off >= 30:
 
             deals.append({
