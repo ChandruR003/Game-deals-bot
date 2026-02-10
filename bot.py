@@ -423,8 +423,6 @@ def main():
                 send_message(f"❌ Removed: {name}")
 
 
-        if updates:
-            send_menu()
 
     check_daily()
 
