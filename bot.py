@@ -1,32 +1,29 @@
 import requests
 import os
 import json
+import datetime
 import time
-
-# ---------------- CONFIG ----------------
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 DATA_FILE = "sent_deals.json"
 WATCH_FILE = "watchlist.json"
+PRICE_FILE = "price_history.json"
 UPDATE_FILE = "last_update.txt"
+DAILY_FILE = "last_daily.txt"
+
 
 # ---------------- TELEGRAM ----------------
 
 def send_telegram(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-
     data = {
         "chat_id": CHAT_ID,
-        "text": text,
-        "parse_mode": "HTML"
+        "text": text
     }
-
     requests.post(url, data=data)
 
-
-# ---------------- UPDATE SYSTEM ----------------
 
 def load_last_update():
     try:
@@ -36,9 +33,9 @@ def load_last_update():
         return 0
 
 
-def save_last_update(uid):
+def save_last_update(val):
     with open(UPDATE_FILE, "w") as f:
-        f.write(str(uid))
+        f.write(str(val))
 
 
 def get_updates():
@@ -46,11 +43,7 @@ def get_updates():
     last_id = load_last_update()
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
-
-    params = {
-        "offset": last_id + 1,
-        "timeout": 20
-    }
+    params = {"offset": last_id + 1}
 
     r = requests.get(url, params=params).json()
 
@@ -59,47 +52,165 @@ def get_updates():
 
     updates = r["result"]
 
-    newest = updates[-1]["update_id"]
-    save_last_update(newest)
+    save_last_update(updates[-1]["update_id"])
 
     return updates
 
 
-# ---------------- WATCHLIST ----------------
+# ---------------- STORAGE ----------------
 
-def load_watchlist():
+def load_file(name, default):
     try:
-        with open(WATCH_FILE, "r") as f:
+        with open(name, "r") as f:
             return json.load(f)
     except:
-        return []
+        return default
 
 
-def save_watchlist(data):
-    with open(WATCH_FILE, "w") as f:
+def save_file(name, data):
+    with open(name, "w") as f:
         json.dump(data, f)
 
 
-# ---------------- SENT DEALS ----------------
-
-def load_sent():
+def load_daily():
     try:
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)
+        with open(DAILY_FILE, "r") as f:
+            return f.read().strip()
     except:
-        return []
+        return ""
 
 
-def save_sent(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f)
+def save_daily(val):
+    with open(DAILY_FILE, "w") as f:
+        f.write(val)
 
 
-# ---------------- COMMAND HANDLER ----------------
+# ---------------- EPIC ----------------
 
-def handle_commands():
+def get_epic_deals():
 
-    watchlist = load_watchlist()
+    url = "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=en-US&country=US"
+
+    data = requests.get(url).json()
+
+    games = data["data"]["Catalog"]["searchStore"]["elements"]
+
+    free = []
+    discount = []
+
+    for g in games:
+
+        title = g["title"]
+        price = g["price"]["totalPrice"]
+
+        orig = price["originalPrice"] / 100
+        now = price["discountPrice"] / 100
+        off = price["discount"]
+
+        if now == 0:
+            free.append(f"🆓 {title}")
+
+        elif off > 0:
+            discount.append(
+                f"💰 {title}\nWas: ₹{orig}\nNow: ₹{now} ({off}% OFF)"
+            )
+
+    return free, discount
+
+
+# ---------------- STEAM ----------------
+
+def get_steam_deals():
+
+    url = "https://store.steampowered.com/api/featuredcategories?cc=IN&l=en"
+
+    data = requests.get(url).json()
+
+    items = data["specials"]["items"]
+
+    deals = []
+    free = []
+
+    count = 1
+
+    for g in items[:30]:
+
+        name = g["name"]
+        orig = g["original_price"] / 100
+        now = g["final_price"] / 100
+        off = g["discount_percent"]
+        gid = str(g["id"])
+
+        if now == 0:
+
+            free.append(f"🆓 {name}")
+
+        elif off >= 30:
+
+            tag = " 🔥" if off >= 80 else ""
+
+            deals.append(
+                f"{count}. {name}{tag}\nWas: ₹{orig}\nNow: ₹{now} ({off}% OFF)"
+            )
+
+            count += 1
+
+    return deals, free
+
+
+# ---------------- SUMMARY ----------------
+
+def build_summary():
+
+    epic_free, epic_disc = get_epic_deals()
+    steam_deals, steam_free = get_steam_deals()
+
+    msg = "🎮 Game Deals Summary\n\n"
+
+    msg += "🟦 Epic Free:\n"
+    msg += "\n".join(epic_free) if epic_free else "None"
+    msg += "\n\n"
+
+    msg += "🟦 Epic Discounts:\n"
+    msg += "\n".join(epic_disc) if epic_disc else "None"
+    msg += "\n\n"
+
+    msg += "🟩 Steam Free:\n"
+    msg += "\n".join(steam_free) if steam_free else "None"
+    msg += "\n\n"
+
+    msg += "🟩 Steam Deals (30%+):\n"
+    msg += "\n".join(steam_deals) if steam_deals else "None"
+
+    return msg
+
+
+# ---------------- DAILY ----------------
+
+def check_daily():
+
+    now = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
+
+    today = now.strftime("%Y-%m-%d")
+    hour = now.hour
+
+    last = load_daily()
+
+    if hour == 21 and last != today:
+
+        msg = "📅 Daily Deals Summary\n\n" + build_summary()
+
+        send_telegram(msg)
+
+        save_daily(today)
+
+
+# ---------------- MAIN ----------------
+
+def main():
+
+    sent = load_file(DATA_FILE, [])
+    watch = load_file(WATCH_FILE, [])
 
     updates = get_updates()
 
@@ -108,125 +219,76 @@ def handle_commands():
         if "message" not in u:
             continue
 
-        msg = u["message"]
-        text = msg.get("text", "").strip().lower()
+        text = u["message"].get("text", "").lower()
 
         if not text.startswith("/"):
             continue
 
         parts = text.split(" ", 1)
+
         cmd = parts[0]
         arg = parts[1] if len(parts) > 1 else ""
 
 
-        # -------- ADD --------
+        # ADD
         if cmd == "/add" and arg:
 
-            if arg not in watchlist:
-                watchlist.append(arg)
-                save_watchlist(watchlist)
-
-                send_telegram(f"✅ Added: <b>{arg}</b>")
+            if arg not in watch:
+                watch.append(arg)
+                save_file(WATCH_FILE, watch)
+                send_telegram(f"✅ Added: {arg}")
             else:
-                send_telegram(f"⚠️ Already in list: <b>{arg}</b>")
+                send_telegram("⚠️ Already added")
 
 
-        # -------- REMOVE --------
+        # REMOVE
         elif cmd == "/remove" and arg:
 
-            if arg in watchlist:
-                watchlist.remove(arg)
-                save_watchlist(watchlist)
-
-                send_telegram(f"❌ Removed: <b>{arg}</b>")
+            if arg in watch:
+                watch.remove(arg)
+                save_file(WATCH_FILE, watch)
+                send_telegram(f"❌ Removed: {arg}")
             else:
-                send_telegram(f"⚠️ Not found: <b>{arg}</b>")
+                send_telegram("⚠️ Not found")
 
 
-        # -------- CLEAR --------
-        elif cmd == "/clear":
-
-            watchlist.clear()
-            save_watchlist(watchlist)
-
-            send_telegram("🗑️ Watchlist cleared!")
-
-
-        # -------- LIST --------
+        # LIST
         elif cmd == "/list":
 
-            if watchlist:
-
-                msg = "📌 <b>Your Watchlist</b>\n\n"
-
-                for i, g in enumerate(watchlist, 1):
-                    msg += f"{i}. {g}\n"
-
-                send_telegram(msg)
-
+            if watch:
+                send_telegram("📌 Watchlist:\n" + "\n".join(watch))
             else:
-                send_telegram("📭 Watchlist is empty")
+                send_telegram("📭 Empty")
 
-# STATUS
+
+        # DEALS
+        elif cmd == "/deals":
+
+            send_telegram(build_summary())
+
+
+        # STATUS
         elif cmd == "/status":
-            send_telegram("✅ Bot is running fine.\n⏱ Last check: Active\n💻 Server: Online")
 
-# HELP
+            send_telegram("✅ Bot is running\n⏱ Active\n💻 Server OK")
+
+
+        # HELP
         elif cmd == "/help":
+
             send_telegram(
-                "🤖 Game Deals Bot Help\n\n"
-                "/add <name>  - Add game to watchlist\n"
-                "/remove <name> - Remove from watchlist\n"
-                "/list - Show watchlist\n"
-                "/status - Check bot status\n"
-                "/help - Show this help\n\n"
-                "Example:\n"
-                "/add gta\n"
-                "/remove gta"
+                "🤖 Help\n\n"
+                "/add name\n"
+                "/remove name\n"
+                "/list\n"
+                "/deals\n"
+                "/status\n"
+                "/help"
             )
 
 
-# ---------------- FAKE DEALS (TEMP) ----------------
-# Replace later with real scraping
+    check_daily()
 
-def get_epic_deals():
-    return [], []
-
-
-def get_steam_deals():
-    return [], []
-
-
-# ---------------- MAIN ----------------
-
-def main():
-
-    print("Bot Started...")
-
-    while True:
-
-        try:
-
-            handle_commands()
-
-            sent = load_sent()
-
-            free_games, epic_discounts = get_epic_deals()
-            steam_deals, steam_free = get_steam_deals()
-
-            new_sent = sent.copy()
-
-            # (Future deal logic here)
-
-            save_sent(new_sent)
-
-        except Exception as e:
-            print("Error:", e)
-
-        time.sleep(10)   # Run every 10 seconds
-
-
-# ---------------- START ----------------
 
 if __name__ == "__main__":
     main()
