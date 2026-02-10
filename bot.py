@@ -167,6 +167,10 @@ def handle_commands():
             else:
                 send_telegram("📭 Watchlist is empty")
 
+# STATUS
+        elif cmd == "/status":
+            send_telegram("✅ Bot is running fine.\n⏱ Last check: Active\n💻 Server: Online")
+
 
 # ---------------- FAKE DEALS (TEMP) ----------------
 # Replace later with real scraping
