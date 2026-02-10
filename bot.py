@@ -91,6 +91,11 @@ def save_daily(val):
 
 # ---------------- TELEGRAM UPDATES ---------------- #
 
+def answer_callback(callback_id):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery"
+    data = {"callback_query_id": callback_id}
+    requests.post(url, data=data)
+
 def get_updates():
     last = load_update()
 
@@ -309,47 +314,79 @@ def main():
 
     for u in updates:
 
-        if "message" not in u:
-            continue
+    # ---------- BUTTON CLICKS ----------
+    if "callback_query" in u:
 
-        text = u["message"].get("text", "").lower()
+        cb = u["callback_query"]
+        data = cb["data"]
 
-        if text == "/deals":
-            send_deals()
+        answer_callback(cb["id"])
 
-        elif text == "/details":
+        if data == "epic":
+            send_epic()
+
+        elif data == "steam":
+            send_steam()
+
+        elif data == "details":
             send_details()
 
-        elif text.startswith("/add "):
+        continue
 
-            name = text[5:]
 
-            if name not in watch:
-                watch.append(name)
-                save_file(WATCH_FILE, watch)
-                send_message(f"✅ Added: {name}")
+    # ---------- NORMAL MESSAGES ----------
+    if "message" not in u:
+        continue
 
-        elif text.startswith("/remove "):
+    text = u["message"].get("text", "").lower()
 
-            name = text[8:]
 
-            if name in watch:
-                watch.remove(name)
-                save_file(WATCH_FILE, watch)
-                send_message(f"❌ Removed: {name}")
+    if text == "/deals":
+        send_deals()
 
-        elif text == "/list":
 
-            if watch:
-                send_message("📌 Watchlist:\n" + "\n".join(watch))
-            else:
-                send_message("Empty")
+    elif text == "/details":
+        send_details()
 
-        elif text == "/help":
 
-            send_message(
-                "/deals\n/details\n/add name\n/remove name\n/list"
-            )
+    elif text.startswith("/add "):
+
+        name = text[5:]
+
+        if name not in watch:
+            watch.append(name)
+            save_file(WATCH_FILE, watch)
+            send_message(f"✅ Added: {name}")
+
+
+    elif text.startswith("/remove "):
+
+        name = text[8:]
+
+        if name in watch:
+            watch.remove(name)
+            save_file(WATCH_FILE, watch)
+            send_message(f"❌ Removed: {name}")
+
+
+    elif text == "/list":
+
+        if watch:
+            send_message("📌 Watchlist:\n" + "\n".join(watch))
+        else:
+            send_message("📭 Empty")
+
+
+    elif text == "/help":
+
+        send_message(
+            "🤖 Commands:\n"
+            "/deals - Show deals\n"
+            "/details - Full list\n"
+            "/add name\n"
+            "/remove name\n"
+            "/list"
+        )
 
     check_daily()
 
