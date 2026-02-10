@@ -30,6 +30,25 @@ def send_message(text, buttons=None):
 
     requests.post(url, data=data)
 
+def send_menu():
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+
+    data = {
+        "chat_id": CHAT_ID,
+        "text": "🎮 Game Deals Menu",
+        "reply_markup": json.dumps({
+            "keyboard": [
+                ["🟦 Epic", "🟩 Steam"],
+                ["🔥 Deals", "📜 Details"],
+                ["🌐 Epic Store", "🌐 Steam Store"]
+            ],
+            "resize_keyboard": True,
+            "one_time_keyboard": False
+        })
+    }
+
+    requests.post(url, data=data)
+
 
 def send_photo(text, image, buttons=None):
 
@@ -236,15 +255,10 @@ def send_deals():
     e_free, e_hot, _, _ = get_epic()
     s_free, s_hot, _, _ = get_steam()
 
-    send_message(
-        "🎮 <b>Game Deals</b>",
-        buttons=[
-            [{"text": "🟦 Epic", "callback_data": "epic"}],
-            [{"text": "🟩 Steam", "callback_data": "steam"}],
-            [{"text": "📜 Details", "callback_data": "details"}],
-        ]
-    )
+    # Just send title (no buttons here)
+    send_message("🎮 <b>Game Deals</b>")
 
+    # Epic Deals
     for g in e_hot:
 
         txt = (
@@ -253,12 +267,10 @@ def send_deals():
             f"Ends: {g['end']}"
         )
 
-        send_photo(
-            txt,
-            g["img"],
-            [[{"text": "🟦 Epic Store", "url": "https://store.epicgames.com"}]]
-        )
+        send_photo(txt, g["img"])
 
+
+    # Steam Deals
     for g in s_hot:
 
         txt = (
@@ -266,11 +278,7 @@ def send_deals():
             f"₹{g['orig']} → ₹{g['now']} ({g['off']}% OFF)"
         )
 
-        send_photo(
-            txt,
-            g["img"],
-            [[{"text": "🟩 Steam Store", "url": "https://store.steampowered.com"}]]
-        )
+        send_photo(txt, g["img"])
 
 
 def send_epic():
@@ -361,6 +369,7 @@ def main():
     watch = load_file(WATCH_FILE, [])
 
     updates = get_updates()
+    send_menu()
 
     for u in updates:
 
