@@ -171,6 +171,20 @@ def handle_commands():
         elif cmd == "/status":
             send_telegram("✅ Bot is running fine.\n⏱ Last check: Active\n💻 Server: Online")
 
+# HELP
+        elif cmd == "/help":
+            send_telegram(
+                "🤖 Game Deals Bot Help\n\n"
+                "/add <name>  - Add game to watchlist\n"
+                "/remove <name> - Remove from watchlist\n"
+                "/list - Show watchlist\n"
+                "/status - Check bot status\n"
+                "/help - Show this help\n\n"
+                "Example:\n"
+                "/add gta\n"
+                "/remove gta"
+            )
+
 
 # ---------------- FAKE DEALS (TEMP) ----------------
 # Replace later with real scraping
