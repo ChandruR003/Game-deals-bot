@@ -294,7 +294,7 @@ def check_daily_and_watch():
     now = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
     today = now.strftime("%Y-%m-%d")
     last = load_daily()
-    if now.hour == 21 and last != today:
+    if now.hour == 19 and last != today:
         send_deals()
         save_daily(today)
 
