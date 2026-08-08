@@ -2,7 +2,7 @@ name: Game Deals Bot
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # Runs every 10 minutes
+    - cron: "30 2,14 * * *"   # Runs every 8am and 8pm minutes
   workflow_dispatch:
 
 jobs:
